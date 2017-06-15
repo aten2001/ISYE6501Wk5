@@ -1,0 +1,70 @@
+---
+title: "ISYE6501 HW5"
+author: "Keh-Harng Feng"
+date: "June 15, 2017"
+header-includes:
+    - \usepackage{placeins}
+output: 
+  bookdown::html_document2:
+    fig_caption: TRUE
+    toc: FALSE
+urlcolor: blue
+---
+```{r setup, include=FALSE}
+library('knitr')
+library('caret')
+library('glmnet')
+library('glmnetUtils')
+library('parallel')
+
+opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, tidy = TRUE, cache = TRUE)
+options(digits = 4)
+```
+
+## Preface
+This is a reproducible report with most of the codes doing the heavy lifting hidden in the background. You can download the source code of the report by [clicking here](https://github.com/fengkehh/ISYE6501WK4/blob/master/HW4_Report.Rmd). All of the information you need as a reivewer is in the report, not in the code. You should NEVER run any R scripts from an untrusted source on your own computer.  
+
+# Question 1
+**Using the crime data set from Homework 3, build a regression model using:**
+1. **Stepwise regression**
+2. **Lasso**
+3. **Elastic net**
+**For Parts 2 and 3, remember to scale the data first – otherwise, the regression coefficients will be on different scales and the constraint won’t have the desired effect.**
+**For Parts 2 and 3, use the glmnet function in R.**
+
+```{r}
+q1_data <- read.table('uscrime.txt', header = TRUE)
+
+q1_data$So <- factor(q1_data$So)
+
+n <- nrow(q1_data)
+
+set.seed(123)
+inTrain <- sample(1:n, size = ceiling(n*0.9))
+
+q1.train <- q1_data[inTrain,]
+q1.test <- q1_data[-inTrain,]
+
+# Hack
+q1.test <- rbind(q1.train[1,], q1.test)
+q1.test <- q1.test[-1,]
+
+# Preprocessing
+#preProc1 <- preProcess(q1.train[,-c(2, 16)], method = 'corr')
+#q1.train.preproc1 <- predict(preProc1, q1.train)
+preProc <- preProcess(q1.train.preproc1[,-16], method = c('BoxCox', 'center', 'scale'))
+q1.train.preproc2 <- predict(preProc2, q1.train.preproc1)
+```
+
+Variable `So` is converted to a 2-level factor as it is categorical. The data is then splitted into a training (~90%) and testing (~10%) sets as usual. Predictor variables from the training set are transformed using Box-Cox transformation then centered and scaled (see my [HW3 Report](https://github.com/fengkehh/ISYE6501WK3/blob/master/HW3_Report.pdf)). The response `Crime` is not preprocessed.
+
+## Part 1: Stepwise Regression
+Stepwise regression in both directions is carried out using the `step()` function and AIC as the selection metric. The initial starting point is an OLS model using all features. 
+
+```{r}
+# Initial Model for Stepwise Selection
+model.init <- lm(Crime ~ ., data = q1.train.preproc2)
+
+# Stepwise Selection
+model.stepboth <- step(model.init, direction = 'both')
+```
