@@ -50,8 +50,6 @@ q1.test <- rbind(q1.train[1,], q1.test)
 q1.test <- q1.test[-1,]
 
 # Preprocessing
-#preProc1 <- preProcess(q1.train[,-c(2, 16)], method = 'corr')
-#q1.train.preproc1 <- predict(preProc1, q1.train)
 preProc <- preProcess(q1.train[,-16], method = c('BoxCox', 'center', 'scale'))
 q1.train.preproc <- predict(preProc, q1.train)
 ```
@@ -174,7 +172,7 @@ mse.lasso <- min(model.lasso$cvm)
 mse.elastic <- min(model.elastic$cvm)
 ```
 
-With 11 out of 15 features selected the model is perhaps in danger of overfitting. However, in contrast to LASSO the colinear predictors `Po1` and `Po2` are assigned roughly equal weights. This is an expected characteristic of elastic net regression. The estimated MSE as a function of log(lambda) from both LASSO and elastic net is shown in Figure \@ref(fig:glmnetcompare). The minimum MSE achieved by LASSO is $`r mse.lasso`$ while that of the elastic net is $`r mse.elastic`$. 
+With 11 out of 15 features selected the model is perhaps in danger of overfitting. However, in contrast to LASSO the colinear predictors `Po1` and `Po2` are assigned roughly equal weights. This is an expected behavior of elastic net regression. The estimated MSE as a function of log(lambda) from both LASSO and elastic net is shown in Figure \@ref(fig:glmnetcompare). The minimum MSE achieved by LASSO is $`r mse.lasso`$ while that of the elastic net is $`r mse.elastic`$. 
 
 ```{r glmnetcompare, fig.cap = '10-CV estimated MSE vs log(lambda) between LASSO and elastic net (alpha ~0.202).'}
 plot(log(model.elastic$lambda), model.elastic$cvm, xlab = log_lambda_str, ylab = 'Estimated MSE')
@@ -202,4 +200,28 @@ rmse <- data.frame(Model = c('Stepwise', 'LASSO', 'Elastic Net'), RMSE = c(rmse.
 kable(rmse)
 ```
 
-Surprisingly stepwise regression is able to achieve the best test set RMSE by far. Both LASSO and Elastic Net are roughly equal and significantly worse than stepwise regression. I do not have any satisfactory explanation for this besides that the sample size is very small to begin with and that the result could easily be due to any one of the model hitting a fortunate (or unfotunate) jackpot.
+Surprisingly stepwise regression is able to achieve the best test set RMSE by far. Both LASSO and elastic net are roughly equal and significantly worse than stepwise regression. I do not have any satisfactory explanation for this besides that the sample size is very small to begin with and that the result could easily be due to any one of the model hitting a fortunate (or unfotunate) jackpot.
+
+\pagebreak
+
+# Question 2
+**Describe a situation or problem from your job, everyday life, current events, etc., for which a design of experiments approach would be appropriate.**
+
+I was the acting manager and coach of an amateur softball team a couple of years ago. One of my responsibilities was to oversee the design, manufacturing and distribution of the team jerseys. With over 20 players of vastly different backgrounds and ages it was not easy to find an optimal design that satisfied everyone. People have different preferences when it came to material, color, font, and graphics. If I am given the same task again, once the team administrators and designers figure out a limited set of choices for the different elements on the jersey full/fractional factorial design can be utilized to generate different virtual samples using computer graphics. These can then be used in a survey for the team members in order to reach a consensus for an optimal choice.
+
+# Question 3
+**To determine the value of 10 different yes/no features to the market value of a house (large yard, solar roof, etc.), a real estate agent plans to survey 50 potential buyers, showing a fictitious house with different combinations of features. To reduce the survey size, the agent wants to show just 16 fictitious houses. Use R’s FrF2 function (in the FrF2 package) to find a fractional factorial design for this experiment: what set of features should each of the 16 fictitious houses? Note: the output of FrF2 is “1” (include) or “-1” (don’t include) for each feature.**
+
+# Question 4
+**For each of the following distributions, give an example of data that you would expect to follow this distribution (besides the examples already discussed in class).**
+
+a. **Binomial**
+
+b. **Geometric**
+
+c. **Poisson**
+
+d. **Exponential**
+
+e. **Weibull**
+
