@@ -22,7 +22,7 @@ options(digits = 4)
 ```
 
 ## Preface
-This is a reproducible report with most of the codes doing the heavy lifting hidden in the background. You can download the source code of the report by [clicking here](https://github.com/fengkehh/ISYE6501WK4/blob/master/HW4_Report.Rmd). All of the information you need as a reivewer is in the report, not in the code. You should NEVER run any R scripts from an untrusted source on your own computer.  
+This is a reproducible report with most of the codes doing the heavy lifting hidden in the background. You can download the source code of the report by [clicking here](https://github.com/fengkehh/ISYE6501Wk5/blob/master/HW5_Report.Rmd). All of the information you need as a reviewer is in the report, not in the code. You should NEVER run any R scripts from an untrusted source on your own computer.  
 
 # Question 1
 **Using the crime data set from Homework 3, build a regression model using:**
@@ -52,19 +52,142 @@ q1.test <- q1.test[-1,]
 # Preprocessing
 #preProc1 <- preProcess(q1.train[,-c(2, 16)], method = 'corr')
 #q1.train.preproc1 <- predict(preProc1, q1.train)
-preProc <- preProcess(q1.train.preproc1[,-16], method = c('BoxCox', 'center', 'scale'))
-q1.train.preproc2 <- predict(preProc2, q1.train.preproc1)
+preProc <- preProcess(q1.train[,-16], method = c('BoxCox', 'center', 'scale'))
+q1.train.preproc <- predict(preProc, q1.train)
 ```
 
 Variable `So` is converted to a 2-level factor as it is categorical. The data is then splitted into a training (~90%) and testing (~10%) sets as usual. Predictor variables from the training set are transformed using Box-Cox transformation then centered and scaled (see my [HW3 Report](https://github.com/fengkehh/ISYE6501WK3/blob/master/HW3_Report.pdf)). The response `Crime` is not preprocessed.
 
-## Part 1: Stepwise Regression
+## Stepwise Regression
 Stepwise regression in both directions is carried out using the `step()` function and AIC as the selection metric. The initial starting point is an OLS model using all features. 
 
-```{r}
+```{r, results = 'hide'}
 # Initial Model for Stepwise Selection
-model.init <- lm(Crime ~ ., data = q1.train.preproc2)
+model.init <- lm(Crime ~ ., data = q1.train.preproc)
 
 # Stepwise Selection
 model.stepboth <- step(model.init, direction = 'both')
 ```
+
+The final model selected is shown below:
+```{r}
+summary(model.stepboth)
+```
+
+While the process cut down the number of predictors from 15 to 10, features `NW`, `U1`, and `Wealth` show p-values higher than 0.05. It should be noted that model statistics from stepwise regression often [do not mean what they are supposed to mean](https://stats.stackexchange.com/questions/20836/algorithms-for-automatic-model-selection/20856#20856). It is generally frowned upon as a naive method for feature selection.
+
+## LASSO Regression
+A LASSO regression is fitted using `glmnet` ($\alpha = 0$). 10-fold cross-validation is used to generate estimated MSE to select the optimal regularization parameter $\lambda$. The resulting LASSO model contains the following coefficients:
+
+```{r}
+model.lasso <- cv.glmnet(Crime ~., data = q1.train.preproc, 
+                      family = 'gaussian', alpha = 1, type.measure = 'mse', 
+                      keep = TRUE, nfolds = 10)
+
+show_coeffs <- function(model) {
+    coeffs <- coef(model, s = "lambda.min")    
+    df <- data.frame(name = dimnames(coeffs)[[1]][coeffs@i+1], 
+                     coefficient = coeffs@x)
+    return(df)
+}
+
+kable(show_coeffs(model.lasso))
+```
+
+9 features out of 15 are selected for the LASSO model. Notice that from HW3 we know `Po1` and `Po2` are highly correlated. In fact, Po1 was removed during exploratory analysis due to high colinearity check in my [HW3 Report](https://github.com/fengkehh/ISYE6501WK3/blob/master/HW3_Report.pdf). Here LASSO does not remove either predictor. Instead `Po1` is assigned a much heavier influence compared to `Po2`. This is one of the common criticisms about LASSO: one of the highly correlated variables tends to be selected and assigned heavy influence while others are penalized seemingly randomly.
+
+## Elastic Net
+Before we move on to elastic net, Figure \@ref(fig:alphaplots) shows the effect of $\alpha$ on model MSE (all CV folds are fixed to the folds used to build the LASSO model).
+
+```{r alphaplots, fig.cap = '10-CV estimated model MSE vs log(lambda).'}
+cv0 <- cv.glmnet(Crime ~., data = q1.train.preproc, alpha = 0, foldid = model.lasso$foldid)
+cv05 <- cv.glmnet(Crime ~., data = q1.train.preproc, alpha = 0.5, foldid = model.lasso$foldid)
+cv1 <- cv.glmnet(Crime ~., data = q1.train.preproc, alpha = 1, foldid = model.lasso$foldid)
+
+plot(log(cv1$lambda),cv1$cvm,pch=19,col="red",xlab="log(Lambda)",ylab=cv1$name)
+points(log(cv05$lambda),cv05$cvm,pch=19,col="grey")
+points(log(cv0$lambda),cv0$cvm,pch=19,col="blue")
+legend("topleft",legend=c("alpha= 1","alpha= .5","alpha 0"),pch=19,col=c("red","grey","blue"))
+```
+
+It seems that $\alpha = 0.5$ achieves the smallest MSE compared to both LASSO ($\alpha = 1$) and ridge regression ($\alpha = 0$). A grid-search is done to find the alpha value that corresponds to the minimum estimated MSE using the same CV folds. 
+
+```{r}
+# Grid search
+q1_grid_search <- function(alpha_range = c(0, 1), grid_n = 1001, foldid) {
+
+    alphas <- seq(from = alpha_range[1], to = alpha_range[2],
+                  length.out = grid_n)
+
+    mse_vals <- rep(0, grid_n)
+
+    q1_helper <- function(alpha, data, foldid) {
+
+        test_model <- glmnetUtils::cv.glmnet(Crime ~., data = data,
+                                             alpha = alpha, foldid = foldid)
+        
+        min_mse <- min(test_model$cvm)
+
+        return(min_mse)
+    }
+
+    cl <- makePSOCKcluster(detectCores(logical = FALSE))
+    clusterExport(cl = cl, varlist = list('alphas', 'q1.train.preproc'),
+                  envir = environment())
+
+    mse_vals <- parSapply(cl = cl, X = alphas, FUN = q1_helper, 
+                          data = q1.train.preproc, foldid = foldid)
+
+    stopCluster(cl)
+
+    ans = list(min_ind = min(mse_vals), alpha = alphas[which.min(mse_vals)], 
+               mses = mse_vals)
+    
+    return(ans)
+}
+
+alpha_search <- q1_grid_search(foldid = model.lasso$foldid)
+model.elastic <- cv.glmnet(Crime ~., data = q1.train.preproc, 
+                           alpha = alpha_search$alpha, foldid = model.lasso$foldid)
+
+```
+
+The minimum MSE found vs corresponding alpha values is shown in Figure \@ref(fig:msealphas). With this in mind, an elastic net model is constructed using the alpha value that corresponds to the smallest MSE, $\alpha =$ `r alpha_search$alpha`. 
+
+```{r msealphas, fig.cap = 'Min MSE vs alphas'}
+alphas <- seq(from = 0, to = 1, length.out = 1001)
+plot(alphas, alpha_search$mses)
+```
+
+The estimated MSE as a function of log(lambda) from both LASSO and elastic net is shown in Figure \@ref(fig:glmnetcompare). The minimum MSE achieved by LASSO is `r min(model.lasso$cvm)` while that of the elastic net is `r min(model.elastic$cvm)`. 
+
+```{r glmnetcompare, fig.cap = '10-CV estimated MSE vs log(lambda) between LASSO and elastic net (alpha ~0.202).'}
+model.elastic <- cv.glmnet(Crime ~., data = q1.train.preproc, 
+                           alpha = alpha_search$alpha, foldid = model.lasso$foldid)
+
+plot(log(model.elastic$lambda), model.elastic$cvm, xlab = 'Log(lambda)', ylab = 'Estimated MSE')
+points(log(model.lasso$lambda), model.lasso$cvm, col = 'red')
+legend('topright', pch = 'o', legend = c('Elastic Net', 'LASSO'), col = c('black', 'red'))
+```
+
+## Model Performance
+
+Model performance is evaluated using the test set with the RMSE as the metric. The result is shown below.
+
+```{r}
+q1.test.preproc <- predict(preProc, q1.test)
+
+pred.stepboth <- predict(model.stepboth, q1.test.preproc)
+pred.lasso <- predict(model.lasso, q1.test.preproc)
+pred.elastic <- predict(model.elastic, q1.test.preproc)
+
+rmse.stepboth <- sqrt(ModelMetrics::mse(q1.test.preproc$Crime, pred.stepboth))
+rmse.lasso <- sqrt(ModelMetrics::mse(q1.test.preproc$Crime, pred.lasso))
+rmse.elastic <- sqrt(ModelMetrics::mse(q1.test.preproc$Crime, pred.elastic))
+
+rmse <- data.frame(Model = c('Stepwise', 'LASSO', 'Elastic Net'), RMSE = c(rmse.stepboth, rmse.lasso, rmse.elastic))
+
+kable(rmse)
+```
+
+Surprisingly stepwise regression is able to achieve the best test set RMSE by far. Both LASSO and Elastic Net are roughly equal and significantly worse than stepwise regression. I do not have any satisfactory explanation for this besides that the sample size is very small to begin with and that the result could easily be due to any one of the model hitting a fortunate (or unfotunate) jackpot.
