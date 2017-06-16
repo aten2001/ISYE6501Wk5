@@ -5,7 +5,7 @@ date: "June 15, 2017"
 header-includes:
     - \usepackage{placeins}
 output: 
-  bookdown::html_document2:
+  bookdown::pdf_book:
     fig_caption: TRUE
     toc: FALSE
 urlcolor: blue
@@ -104,11 +104,14 @@ cv0 <- cv.glmnet(Crime ~., data = q1.train.preproc, alpha = 0, foldid = model.la
 cv05 <- cv.glmnet(Crime ~., data = q1.train.preproc, alpha = 0.5, foldid = model.lasso$foldid)
 cv1 <- cv.glmnet(Crime ~., data = q1.train.preproc, alpha = 1, foldid = model.lasso$foldid)
 
-plot(log(cv1$lambda),cv1$cvm,pch=19,col="red",xlab="log(Lambda)",ylab=cv1$name)
+log_lambda_str <- expression('log('~lambda~')')
+plot(log(cv1$lambda),cv1$cvm,pch=19,col="red",xlab=log_lambda_str,ylab=cv1$name)
 points(log(cv05$lambda),cv05$cvm,pch=19,col="grey")
 points(log(cv0$lambda),cv0$cvm,pch=19,col="blue")
 legend("topleft",legend=c("alpha= 1","alpha= .5","alpha 0"),pch=19,col=c("red","grey","blue"))
 ```
+
+\FloatBarrier
 
 It seems that $\alpha = 0.5$ achieves the smallest MSE compared to both LASSO ($\alpha = 1$) and ridge regression ($\alpha = 0$). A grid-search is done to find the alpha value that corresponds to the minimum estimated MSE using the same CV folds. 
 
@@ -154,22 +157,27 @@ model.elastic <- cv.glmnet(Crime ~., data = q1.train.preproc,
 
 The minimum MSE found vs corresponding alpha values is shown in Figure \@ref(fig:msealphas). With this in mind, an elastic net model is constructed using the alpha value that corresponds to the smallest MSE, $\alpha =$ `r alpha_search$alpha`. 
 
-```{r msealphas, fig.cap = 'Min MSE vs alphas'}
+```{r msealphas, fig.cap = 'Min MSE vs alpha'}
 alphas <- seq(from = 0, to = 1, length.out = 1001)
-plot(alphas, alpha_search$mses)
+plot(alphas, alpha_search$mses, ylab = '10-CV Estimated MSE', xlab = expression(alpha~' (LASSO/ridge weighting)'))
 ```
+
+\FloatBarrier
 
 The model coefficients are shown below. 
 ```{r}
 model.elastic <- cv.glmnet(Crime ~., data = q1.train.preproc, 
                            alpha = alpha_search$alpha, foldid = model.lasso$foldid)
-show_coeffs(model.elastic)
+kable(show_coeffs(model.elastic))
+
+mse.lasso <- min(model.lasso$cvm)
+mse.elastic <- min(model.elastic$cvm)
 ```
 
-With 11 out of 15 features selected the model is perhaps in danger of overfitting. However, in contrast to LASSO the colinear predictors `Po1` and `Po2` are assigned roughly equal weights. This is an expected characteristic of elastic net regression. The estimated MSE as a function of log(lambda) from both LASSO and elastic net is shown in Figure \@ref(fig:glmnetcompare). The minimum MSE achieved by LASSO is `r min(model.lasso$cvm)` while that of the elastic net is `r min(model.elastic$cvm)`. 
+With 11 out of 15 features selected the model is perhaps in danger of overfitting. However, in contrast to LASSO the colinear predictors `Po1` and `Po2` are assigned roughly equal weights. This is an expected characteristic of elastic net regression. The estimated MSE as a function of log(lambda) from both LASSO and elastic net is shown in Figure \@ref(fig:glmnetcompare). The minimum MSE achieved by LASSO is $`r mse.lasso`$ while that of the elastic net is $`r mse.elastic`$. 
 
 ```{r glmnetcompare, fig.cap = '10-CV estimated MSE vs log(lambda) between LASSO and elastic net (alpha ~0.202).'}
-plot(log(model.elastic$lambda), model.elastic$cvm, xlab = 'Log(lambda)', ylab = 'Estimated MSE')
+plot(log(model.elastic$lambda), model.elastic$cvm, xlab = log_lambda_str, ylab = 'Estimated MSE')
 points(log(model.lasso$lambda), model.lasso$cvm, col = 'red')
 legend('topright', pch = 'o', legend = c('Elastic Net', 'LASSO'), col = c('black', 'red'))
 ```
