@@ -159,12 +159,16 @@ alphas <- seq(from = 0, to = 1, length.out = 1001)
 plot(alphas, alpha_search$mses)
 ```
 
-The estimated MSE as a function of log(lambda) from both LASSO and elastic net is shown in Figure \@ref(fig:glmnetcompare). The minimum MSE achieved by LASSO is `r min(model.lasso$cvm)` while that of the elastic net is `r min(model.elastic$cvm)`. 
-
-```{r glmnetcompare, fig.cap = '10-CV estimated MSE vs log(lambda) between LASSO and elastic net (alpha ~0.202).'}
+The model coefficients are shown below. 
+```{r}
 model.elastic <- cv.glmnet(Crime ~., data = q1.train.preproc, 
                            alpha = alpha_search$alpha, foldid = model.lasso$foldid)
+show_coeffs(model.elastic)
+```
 
+With 11 out of 15 features selected the model is perhaps in danger of overfitting. However, in contrast to LASSO the colinear predictors `Po1` and `Po2` are assigned roughly equal weights. This is an expected characteristic of elastic net regression. The estimated MSE as a function of log(lambda) from both LASSO and elastic net is shown in Figure \@ref(fig:glmnetcompare). The minimum MSE achieved by LASSO is `r min(model.lasso$cvm)` while that of the elastic net is `r min(model.elastic$cvm)`. 
+
+```{r glmnetcompare, fig.cap = '10-CV estimated MSE vs log(lambda) between LASSO and elastic net (alpha ~0.202).'}
 plot(log(model.elastic$lambda), model.elastic$cvm, xlab = 'Log(lambda)', ylab = 'Estimated MSE')
 points(log(model.lasso$lambda), model.lasso$cvm, col = 'red')
 legend('topright', pch = 'o', legend = c('Elastic Net', 'LASSO'), col = c('black', 'red'))
