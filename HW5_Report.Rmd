@@ -231,7 +231,7 @@ for (varname in names(design_frame)) {
 kable(design_frame)
 ```
 
-**Digression:** If the assumption above doesn't hold and the 50 buyers contain features of their own that may affect the experiment outcome (ie: genders, age, ethnicity etc) then these factors must be accounted for as well (possiblty through blocking). If the order for which the example houses are shown to the buyers matters (ie: seeing a great house first negatively affects the outcome of a mediocre house shown right after, vice versa) then the buyers must be carefully divided into groups and with the houses shown in randomized orders to control its effect.
+**Digression:** If the assumption above doesn't hold and the 50 buyers contain features of their own that may affect the experiment outcome (ie: genders, age, ethnicity etc) then these factors must be accounted for as well (possiblty through blocking). If the order for which example houses are shown to the buyers first matters (ie: seeing a great house first negatively affects the outcome of a mediocre house shown right after, vice versa) then the buyers must be carefully divided into groups and with the houses shown in randomized orders to control its effect.
 
 # Question 4
 **For each of the following distributions, give an example of data that you would expect to follow this distribution (besides the examples already discussed in class).**
